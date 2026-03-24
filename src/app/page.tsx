@@ -76,6 +76,7 @@ export default function Home() {
     setIsConverting(true);
     setConversionProgress(0);
     setError(null);
+    setConvertedFile(null);
     
     try {
       const blob = await convertFile(selectedFile, targetFormat, (progress) => {
