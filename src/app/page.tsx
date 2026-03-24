@@ -2,6 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { convertFile, loadFFmpeg } from '@/utils/converter';
+import { useStats } from '@/hooks/useStats';
+import { StatsPanel } from '@/components/StatsPanel';
+import { HistoryPanel } from '@/components/HistoryPanel';
+import { BatchConverter } from '@/components/BatchConverter';
+
+type Tab = 'convert' | 'batch' | 'history';
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -12,7 +18,10 @@ export default function Home() {
   const [targetFormat, setTargetFormat] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isLoadingFFmpeg, setIsLoadingFFmpeg] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('convert');
+  const [batchProgress, setBatchProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { stats, isLoaded, addConversion, clearHistory, deleteRecord } = useStats();
 
   useEffect(() => {
     const load = async () => {
@@ -78,11 +87,23 @@ export default function Home() {
     setError(null);
     setConvertedFile(null);
     
+    const startTime = Date.now();
+    const sourceFormat = selectedFile.name.split('.').pop()?.toLowerCase() || 'unknown';
+    
     try {
       const blob = await convertFile(selectedFile, targetFormat, (progress) => {
         setConversionProgress(progress);
       });
       setConvertedFile(blob);
+      
+      const duration = Date.now() - startTime;
+      addConversion(
+        selectedFile.name,
+        sourceFormat,
+        targetFormat,
+        selectedFile.size,
+        duration
+      );
     } catch (err) {
       console.error('Conversion error:', err);
       setError(err instanceof Error ? err.message : 'Conversion failed. Please try again.');
@@ -116,10 +137,36 @@ export default function Home() {
     }
   };
 
+  const handleBatchConvert = async (files: File[], format: string) => {
+    setIsConverting(true);
+    setBatchProgress(0);
+    let completed = 0;
+    
+    for (const file of files) {
+      try {
+        const startTime = Date.now();
+        const sourceFormat = file.name.split('.').pop()?.toLowerCase() || 'unknown';
+        
+        await convertFile(file, format, () => {});
+        
+        const duration = Date.now() - startTime;
+        addConversion(file.name, sourceFormat, format, file.size, duration);
+        
+        completed++;
+        setBatchProgress(Math.round((completed / files.length) * 100));
+      } catch (err) {
+        console.error(`Failed to convert ${file.name}:`, err);
+      }
+    }
+    
+    setIsConverting(false);
+    setBatchProgress(0);
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <header className="text-center mb-12 pt-8">
+        <header className="text-center mb-8 pt-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg mb-6">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
@@ -132,179 +179,277 @@ export default function Home() {
             Convert files between formats locally on your device. Fast, secure, and free.
           </p>
         </header>
-        
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 sm:p-8">
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          )}
-          
-          <form 
-            onSubmit={handleSubmit}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className="space-y-6"
+
+        {/* Stats Panel */}
+        {isLoaded && stats.totalConversions > 0 && (
+          <StatsPanel stats={stats} />
+        )}
+
+        {/* Tab Navigation */}
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-8">
+          <button
+            onClick={() => setActiveTab('convert')}
+            className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'convert'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            <div 
-              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
-                isDragging 
-                  ? 'border-blue-500 bg-blue-50/50 scale-[1.02]' 
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <div className="space-y-4">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full">
-                  <svg className={`w-6 h-6 transition-colors ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    {isDragging ? 'Release to upload' : 'Drag & drop your file here'}
-                  </p>
-                  <label 
-                    htmlFor="fileInput" 
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg shadow-md hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all cursor-pointer"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Choose File
-                  </label>
-                  <input
-                    type="file"
-                    id="fileInput"
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                </div>
-              </div>
-              
-              {selectedFile && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-medium text-gray-700 truncate max-w-xs">
-                          {selectedFile.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {(selectedFile.size / 1024).toFixed(1)} KB
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={resetConverter}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+            <div className="flex items-center justify-center space-x-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Convert</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('batch')}
+            className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'batch'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <span>Batch</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'history'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>History</span>
+              {stats.recentConversions.length > 0 && (
+                <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                  {stats.recentConversions.length}
+                </span>
               )}
             </div>
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'convert' && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 sm:p-8">
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="formatSelect" className="block text-sm font-medium text-gray-700 mb-2">
-                  Convert To
-                </label>
-                <select
-                  id="formatSelect"
-                  value={targetFormat}
-                  onChange={handleFormatChange}
-                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  disabled={isConverting || isLoadingFFmpeg}
-                >
-                  <option value="">Select target format</option>
-                  <optgroup label="Images">
-                    <option value="jpg">JPG</option>
-                    <option value="png">PNG</option>
-                    <option value="webp">WebP</option>
-                    <option value="gif">GIF</option>
-                  </optgroup>
-                  <optgroup label="Audio">
-                    <option value="mp3">MP3</option>
-                    <option value="wav">WAV</option>
-                    <option value="ogg">OGG</option>
-                  </optgroup>
-                  <optgroup label="Video">
-                    <option value="mp4">MP4</option>
-                    <option value="webm">WebM</option>
-                    <option value="ogg">OGG</option>
-                  </optgroup>
-                  <optgroup label="Documents">
-                    <option value="pdf">PDF</option>
-                    <option value="docx">DOCX</option>
-                    <option value="txt">TXT</option>
-                  </optgroup>
-                </select>
+            <form 
+              onSubmit={handleSubmit}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className="space-y-6"
+            >
+              <div 
+                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
+                  isDragging 
+                    ? 'border-blue-500 bg-blue-50/50 scale-[1.02]' 
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <div className="space-y-4">
+                  <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full">
+                    <svg className={`w-6 h-6 transition-colors ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">
+                      {isDragging ? 'Release to upload' : 'Drag & drop your file here'}
+                    </p>
+                    <label 
+                      htmlFor="fileInput" 
+                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg shadow-md hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all cursor-pointer"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      Choose File
+                    </label>
+                    <input
+                      type="file"
+                      id="fileInput"
+                      ref={fileInputRef}
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                </div>
+                
+                {selectedFile && (
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-gray-700 truncate max-w-xs">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {(selectedFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetConverter}
+                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               
-              <div className="flex items-end">
-                <button
-                  type="submit"
-                  disabled={!selectedFile || !targetFormat || isConverting || isLoadingFFmpeg}
-                  className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg shadow-lg hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoadingFFmpeg ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Loading Engine...
-                    </>
-                  ) : isConverting ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Converting...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Convert File
-                    </>
-                  )}
-                </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="formatSelect" className="block text-sm font-medium text-gray-700 mb-2">
+                    Convert To
+                  </label>
+                  <select
+                    id="formatSelect"
+                    value={targetFormat}
+                    onChange={handleFormatChange}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    disabled={isConverting || isLoadingFFmpeg}
+                  >
+                    <option value="">Select target format</option>
+                    <optgroup label="Images">
+                      <option value="jpg">JPG</option>
+                      <option value="png">PNG</option>
+                      <option value="webp">WebP</option>
+                      <option value="gif">GIF</option>
+                    </optgroup>
+                    <optgroup label="Audio">
+                      <option value="mp3">MP3</option>
+                      <option value="wav">WAV</option>
+                      <option value="ogg">OGG</option>
+                    </optgroup>
+                    <optgroup label="Video">
+                      <option value="mp4">MP4</option>
+                      <option value="webm">WebM</option>
+                      <option value="ogg">OGG</option>
+                    </optgroup>
+                    <optgroup label="Documents">
+                      <option value="pdf">PDF</option>
+                      <option value="docx">DOCX</option>
+                      <option value="txt">TXT</option>
+                    </optgroup>
+                  </select>
+                </div>
+                
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    disabled={!selectedFile || !targetFormat || isConverting || isLoadingFFmpeg}
+                    className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg shadow-lg hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoadingFFmpeg ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading...
+                      </>
+                    ) : isConverting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Converting...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Convert File
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
+              
+              {conversionProgress > 0 && conversionProgress < 100 && (
+                <div className="space-y-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                    <div 
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${conversionProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-center text-sm text-gray-600">
+                    Converting... {conversionProgress}%
+                  </p>
+                </div>
+              )}
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'batch' && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 sm:p-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Batch Convert</h2>
             
-            {conversionProgress > 0 && conversionProgress < 100 && (
-              <div className="space-y-2">
+            {batchProgress > 0 && batchProgress < 100 && (
+              <div className="mb-6 space-y-2">
                 <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
                   <div 
                     className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300"
-                    style={{ width: `${conversionProgress}%` }}
+                    style={{ width: `${batchProgress}%` }}
                   ></div>
                 </div>
                 <p className="text-center text-sm text-gray-600">
-                  Converting... {conversionProgress}%
+                  Processing... {batchProgress}%
                 </p>
               </div>
             )}
-          </form>
-        </div>
-        
-        {convertedFile && (
+            
+            <BatchConverter 
+              onConvert={handleBatchConvert} 
+              isConverting={isConverting}
+            />
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 sm:p-8">
+            <HistoryPanel 
+              records={stats.recentConversions}
+              onDelete={deleteRecord}
+              onClear={clearHistory}
+            />
+          </div>
+        )}
+
+        {/* Success Message */}
+        {convertedFile && activeTab === 'convert' && (
           <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 sm:p-8">
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
@@ -338,14 +483,18 @@ export default function Home() {
             </div>
           </div>
         )}
-        
-        <div className="mt-12 text-center">
+
+        {/* Footer */}
+        <div className="mt-12 text-center space-y-4">
           <div className="inline-flex items-center space-x-2 text-sm text-gray-500">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <span>Your files are processed locally. No data is uploaded to any server.</span>
           </div>
+          <p className="text-xs text-gray-400">
+            Install as an app for the best experience
+          </p>
         </div>
       </div>
     </main>
