@@ -1,1 +1,103 @@
 @import "tailwindcss";
+
+/* Apple-inspired design refinements */
+
+/* Enhanced glassmorphism with better depth */
+.glass-panel {
+  @apply bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-xl;
+}
+
+.glass-panel-dark {
+  @apply bg-black/50 backdrop-blur-sm border border-white/20 shadow-xl;
+}
+
+/* Enhanced gradients with more sophistication */
+.gradient-premium {
+  @apply bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900;
+}
+
+.gradient-primary {
+  @apply bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700;
+}
+
+.gradient-secondary {
+  @apply bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700;
+}
+
+/* Enhanced shadows for depth */
+.shadow-premium {
+  @apply shadow-lg dark:shadow-dark-lg;
+}
+
+.shadow-inner-premium {
+  @apply inner-shadow-lg dark:inner-shadow-dark-lg;
+}
+
+/* Enhanced transitions */
+.transition-premium {
+  @apply transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Haptic feedback preparation (will be enhanced with JS) */
+.haptic-touch {
+  @appror touch-manipulation;
+}
+
+/* Dark mode support */
+.dark {
+  color-scheme: dark;
+}
+
+/* Custom scrollbar for premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full dark:bg-gray-600;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* Enhanced focus rings for accessibility */
+.focus-ring-premium {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-blue-400;
+}
+
+/* Subtle animations for micro-interactions */
+.hover-lift {
+  @apply hover:-translate-y-0.5 transition-transform duration-200;
+}
+
+.hover-lift-lg {
+  @apply hover:-translate-y-1 transition-transform duration-200;
+}
+
+.press-effect {
+  @apply active:scale-95 transition-transform duration-100;
+}
+
+/* Loading skeleton enhancements */
+.skeleton-loading {
+  @apply animate-pulse bg-gray-200 dark:bg-gray-700;
+}
+
+/* Premium typography */
+.text-premium-title {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-200 dark:to-white;
+}
+
+.text-premium-subtitle {
+  @apply text-gray-600 dark:text-gray-300;
+}
+
+/* Enhanced card interactions */
+.card-hover {
+  @apply hover:shadow-xl hover:shadow-dark-2xl transition-shadow duration-300;
+}
