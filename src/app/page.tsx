@@ -3,14 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { convertFile, loadFFmpeg } from '@/utils/converter';
 import { useStats } from '@/hooks/useStats';
-import { StatsPanel } from '@/components/StatsPanel';
-import { HistoryPanel } from '@/components/HistoryPanel';
-import { BatchConverter } from '@/components/BatchConverter';
 import { initializeUnityAds } from '@/lib/ads';
 import { useHapticFeedback } from '@/hooks/useHaptic';
-import { useTheme } from '@/components/ThemeProvider';
-
-type Tab = 'convert' | 'batch' | 'history';
+import { getAccentClasses, getCardRotation, generateDecorativeElements, ACCENT_COLORS } from '@/lib/formatx';
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -21,15 +16,13 @@ export default function Home() {
   const [targetFormat, setTargetFormat] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isLoadingFFmpeg, setIsLoadingFFmpeg] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('convert');
-  const [batchProgress, setBatchProgress] = useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { stats, isLoaded, addConversion, clearHistory, deleteRecord } = useStats();
+  const { stats, isLoaded } = useStats();
   const { triggerHaptic } = useHapticFeedback();
-  const { resolvedTheme } = useTheme();
+  const decorativeElements = generateDecorativeElements();
 
   useEffect(() => {
-    // Initialize Unity Ads foundation
     initializeUnityAds();
 
     const load = async () => {
@@ -45,17 +38,17 @@ export default function Home() {
     load();
   }, []);
 
-  const handleDragOver = (e: React.DragEvent<HTMLFormElement>) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLFormElement>) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLFormElement>) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
 
@@ -76,7 +69,7 @@ export default function Home() {
     }
   };
 
-  const handleFormatChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleFormatChange = (e: any) => {
     setTargetFormat(e.target.value);
     setConvertedFile(null);
     setError(null);
@@ -84,36 +77,26 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedFile) return;
-    
+
     if (!targetFormat) {
       setError('Please select a target format');
       return;
     }
-    
+
     setIsConverting(true);
     setConversionProgress(0);
     setError(null);
     setConvertedFile(null);
-    
+
     const startTime = Date.now();
-    const sourceFormat = selectedFile.name.split('.').pop()?.toLowerCase() || 'unknown';
-    
+
     try {
       const blob = await convertFile(selectedFile, targetFormat, (progress) => {
         setConversionProgress(progress);
       });
       setConvertedFile(blob);
-      
-      const duration = Date.now() - startTime;
-      addConversion(
-        selectedFile.name,
-        sourceFormat,
-        targetFormat,
-        selectedFile.size,
-        duration
-      );
     } catch (err) {
       console.error('Conversion error:', err);
       setError(err instanceof Error ? err.message : 'Conversion failed. Please try again.');
@@ -123,12 +106,12 @@ export default function Home() {
   };
 
   const handleDownload = () => {
-    if (!convertedFile) return;
-    
+    if (!convertedFile || !selectedFile) return;
+
     const url = window.URL.createObjectURL(convertedFile);
     const a = document.createElement('a');
     a.href = url;
-    const originalName = selectedFile?.name.split('.')[0] || 'converted';
+    const originalName = selectedFile.name.split('.')[0] || 'converted';
     a.download = `${originalName}.${targetFormat}`;
     document.body.appendChild(a);
     a.click();
@@ -147,370 +130,309 @@ export default function Home() {
     }
   };
 
-  const handleBatchConvert = async (files: File[], format: string) => {
-    setIsConverting(true);
-    setBatchProgress(0);
-    let completed = 0;
-    
-    for (const file of files) {
-      try {
-        const startTime = Date.now();
-        const sourceFormat = file.name.split('.').pop()?.toLowerCase() || 'unknown';
-        
-        await convertFile(file, format, () => {});
-        
-        const duration = Date.now() - startTime;
-        addConversion(file.name, sourceFormat, format, file.size, duration);
-        
-        completed++;
-        setBatchProgress(Math.round((completed / files.length) * 100));
-      } catch (err) {
-        console.error(`Failed to convert ${file.name}:`, err);
-      }
-    }
-    
-    setIsConverting(false);
-    setBatchProgress(0);
-  };
-
   return (
-    <main className="min-h-screen gradient-premium dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <header className="text-center mb-8 pt-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-premium mb-6 hover-lift transition-premium">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+    <main className="cosmic-bg relative overflow-hidden">
+      {/* Background Patterns */}
+      <div className="absolute inset-0 dot-grid" />
+      <div className="absolute inset-0 diagonal-stripes" />
+      <div className="absolute inset-0 gradient-mesh" />
+
+      {/* Massive Background Text */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <h1 className="text-9xl md:text-[14rem] font-black font-outfit uppercase tracking-tighter opacity-[0.08] text-shadow-triple">
+          CONVERT
+        </h1>
+      </div>
+
+      {/* Floating Decorative Elements */}
+      {decorativeElements.map((element) => (
+        <div
+          key={element.id}
+          className={`decorative-element ${element.animation === 'spin' ? 'spin' : ''}`}
+          style={{
+            top: element.position.top,
+            left: element.position.left,
+            fontSize: `${element.size}px`,
+            animationDelay: `${Math.random() * 4}s`,
+          }}
+          aria-hidden="true"
+        >
+          {element.symbol}
+        </div>
+      ))}
+
+      <div className="relative z-10 max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        {/* Hero Section */}
+        <header className="text-center mb-16">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-accent-magenta rounded-3xl shadow-stacked mb-8 animate-pulse-glow">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
             </svg>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-premium-title mb-4">
-            File Converter
+
+          <h1 className="text-6xl md:text-8xl font-black font-outfit uppercase tracking-tighter text-shadow-triple gradient-text-animated mb-6">
+            FormatX
           </h1>
-          <p className="text-lg text-premium-subtitle max-w-xl mx-auto">
-            Convert files between formats locally on your device. Fast, secure, and free.
+
+          <p className="text-xl md:text-2xl font-dm-sans text-muted max-w-2xl mx-auto leading-relaxed">
+            Convert files between formats entirely on-device.
+            <span className="block mt-2 font-medium">Fast, secure, and completely free.</span>
           </p>
         </header>
 
-        {/* Stats Panel */}
-        {isLoaded && stats.totalConversions > 0 && (
-          <StatsPanel stats={stats} />
-        )}
+        {/* Format Category Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+          {[
+            { title: 'Images', formats: ['JPG', 'PNG', 'WEBP', 'HEIC'], icon: '🖼️' },
+            { title: 'Documents', formats: ['PDF', 'DOCX', 'TXT'], icon: '📄' },
+            { title: 'Audio', formats: ['MP3', 'WAV', 'AAC', 'FLAC'], icon: '🎵' },
+            { title: 'Video', formats: ['MP4', 'MOV', 'AVI'], icon: '🎬' },
+            { title: 'Archives', formats: ['ZIP', 'RAR', '7Z'], icon: '📦' },
+            { title: 'More', formats: ['CSV', 'JSON', 'XML'], icon: '⚡' },
+          ].map((category, index) => {
+            const accentClasses = getAccentClasses(index);
+            const offsetClass = index % 2 === 1 ? 'md:translate-y-8' : '';
 
-        {/* Tab Navigation */}
-        <div className="flex space-x-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-xl mb-8 shadow-sm">
-          <button
-            onClick={() => {
-              triggerHaptic('light');
-              setActiveTab('convert');
-            }}
-            className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-all duration-300 haptic-touch ${
-              activeTab === 'convert'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-lg hover-lift-lg press-effect'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span>Convert</span>
-          </button>
-          <button
-            onClick={() => {
-              triggerHaptic('light');
-              setActiveTab('batch');
-            }}
-            className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-all duration-300 haptic-touch ${
-              activeTab === 'batch'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-lg hover-lift-lg press-effect'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <span>Batch</span>
-          </button>
-          <button
-            onClick={() => {
-              triggerHaptic('light');
-              setActiveTab('history');
-            }}
-            className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-all duration-300 haptic-touch ${
-              activeTab === 'history'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-lg hover-lift-lg press-effect'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>History</span>
-            {stats.recentConversions.length > 0 && (
-              <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                {stats.recentConversions.length}
-              </span>
-            )}
-          </button>
+            return (
+              <div
+                key={category.title}
+                className={`${accentClasses.card} ${getCardRotation(index)} ${offsetClass} p-6 hover:shadow-stacked-hover transition-all duration-300 cursor-pointer group`}
+                onClick={() => triggerHaptic('light')}
+              >
+                <div className="relative z-10">
+                  <div className="text-4xl mb-4">{category.icon}</div>
+                  <h3 className={`text-2xl font-bold font-outfit uppercase tracking-tight ${accentClasses.text} mb-3`}>
+                    {category.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {category.formats.map((format) => (
+                      <span
+                        key={format}
+                        className="px-2 py-1 bg-white/20 rounded text-xs font-medium text-white border border-white/30"
+                      >
+                        {format}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'convert' && (
-          <div className="glass-panel card-hover shadow-premium p-6 sm:p-8">
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-600 text-sm">{error}</p>
-              </div>
-            )}
-            
-            <form 
-              onSubmit={handleSubmit}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className="space-y-6"
-            >
-              <div 
-                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 hover-lift glass-panel-dark dark:border-gray-600/50 ${
-                  isDragging 
-                    ? 'border-blue-500 bg-blue-50/50 scale-[1.02] shadow-inner-lg'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
-              >
-                <div className="space-y-4">
-                    <div className="inline-flex items-center justify-center w-14 h-14 bg-white/20 rounded-full hover:bg-white/30 transition-colors duration-200">
-                      <svg className={`w-6 h-6 text-gray-600 ${isDragging ? 'text-blue-500 animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        {isDragging ? 'Release to upload' : 'Drag & drop your file here'}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Supported formats: Images, Audio, Video, Documents
-                      </p>
-                      <label 
-                        htmlFor="fileInput" 
-                        className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium rounded-lg shadow-lg hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 hover-lift press-effect"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                        </svg>
-                        Choose File
-                      </label>
-                      <input
-                        type="file"
-                        id="fileInput"
-                        ref={fileInputRef}
-                        className="hidden"
-                        onChange={handleFileChange}
-                      />
-                    </div>
+        {/* Main Converter Interface */}
+        <div className="formatx-card border-magenta shadow-stacked p-8 md:p-12">
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl">
+              <p className="text-red-300 text-sm">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="space-y-8">
+            <div className={`file-drop-zone border-cyan relative p-12 text-center transition-all duration-300 ${isDragging ? 'drag-active' : ''}`}>
+              <div className="space-y-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-accent-cyan rounded-full animate-bounce-subtle">
+                  <svg className={`w-8 h-8 text-white ${isDragging ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
                 </div>
-                
-                    {selectedFile && (
-                      <div className="mt-6 p-4 bg-white/50 backdrop-blur-sm rounded-xl border border-gray-200/50 shadow-inner-sm">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="flex-shrink-0">
-                              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shadow-sm">
-                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                              </div>
-                            </div>
-                            <div className="text-left">
-                              <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-xs">
-                                {selectedFile.name}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {(selectedFile.size / 1024).toFixed(1)} KB
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={resetConverter}
-                            className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-colors duration-200 hover-lift"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                <div>
+                  <p className="text-lg font-bold font-outfit uppercase tracking-wide text-white mb-3">
+                    {isDragging ? 'Release to upload' : 'Drop your file here'}
+                  </p>
+                  <p className="text-sm text-muted mb-6">
+                    Images • Documents • Audio • Video • Archives
+                  </p>
+                  <label htmlFor="fileInput" className="btn-secondary border-accent-magenta text-white px-8 py-4 text-lg font-bold font-outfit uppercase tracking-widest">
+                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Browse Files
+                  </label>
+                  <input type="file" id="fileInput" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+                </div>
+              </div>
+
+              {selectedFile && (
+                <div className="mt-8 p-6 muted-container rounded-2xl border-4 border-orange shadow-stacked">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-12 h-12 bg-accent-yellow rounded-xl flex items-center justify-center shadow-lg">
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 012-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
                         </div>
                       </div>
-                    )}
-              </div>
-              
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                 <div>
-                   <label htmlFor="formatSelect" className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
-                     Convert To
-                   </label>
-                   <select
-                     id="formatSelect"
-                     value={targetFormat}
-                     onChange={handleFormatChange}
-                     className="block w-full rounded-lg border-gray-300 bg-white/90 backdrop-blur-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                     disabled={isConverting || isLoadingFFmpeg}
-                   >
-                     <option value="">Select target format</option>
-                     <optgroup label="Images">
-                       <option value="jpg">JPG</option>
-                       <option value="png">PNG</option>
-                       <option value="webp">WebP</option>
-                       <option value="gif">GIF</option>
-                     </optgroup>
-                     <optgroup label="Audio">
-                       <option value="mp3">MP3</option>
-                       <option value="wav">WAV</option>
-                       <option value="ogg">OGG</option>
-                     </optgroup>
-                     <optgroup label="Video">
-                       <option value="mp4">MP4</option>
-                       <option value="webm">WebM</option>
-                       <option value="ogg">OGG</option>
-                     </optgroup>
-                     <optgroup label="Documents">
-                       <option value="pdf">PDF</option>
-                       <option value="docx">DOCX</option>
-                       <option value="txt">TXT</option>
-                     </optgroup>
-                   </select>
-                 </div>
-                 
-                 <div className="flex items-end">
-                  <button
-                    type="submit"
-                    disabled={!selectedFile || !targetFormat || isConverting || isLoadingFFmpeg}
-                    onClick={() => triggerHaptic('medium')}
-                    className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl shadow-lg shadow-inner-lg hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 hover-lift-lg press-effect haptic-touch disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                     {isLoadingFFmpeg ? (
-                       <>
-                         <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                         </svg>
-                         Loading...
-                       </>
-                     ) : isConverting ? (
-                       <>
-                         <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                         </svg>
-                         Converting...
-                       </>
-                     ) : (
-                       <>
-                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                         </svg>
-                         Convert File
-                       </>
-                     )}
-                   </button>
-                 </div>
-               </div>
-              
-               {conversionProgress > 0 && conversionProgress < 100 && (
-                 <div className="space-y-3">
-                   <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                     <div 
-                       className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300"
-                       style={{ width: `${conversionProgress}%` }}
-                     ></div>
-                   </div>
-                   <div className="flex justify-between text-sm">
-                     <span className="text-gray-600 dark:text-gray-400">
-                       Converting... {conversionProgress}%
-                     </span>
-                     <span className="font-medium text-gray-800 dark:text-gray-200">
-                       {conversionProgress}%
-                     </span>
-                   </div>
-                 </div>
-               )}
-            </form>
-          </div>
-        )}
+                      <div className="text-left">
+                        <p className="text-lg font-bold font-outfit text-white truncate max-w-sm">
+                          {selectedFile.name}
+                        </p>
+                        <p className="text-sm text-muted">
+                          {(selectedFile.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => { triggerHaptic('light'); resetConverter(); }} className="p-3 text-white hover:bg-white/20 rounded-xl transition-colors duration-200">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
-        {activeTab === 'batch' && (
-          <div className="glass-panel card-hover shadow-premium p-6 sm:p-8">
-            <h2 className="text-xl font-bold text-premium-title mb-6">Batch Convert</h2>
-            
-            {batchProgress > 0 && batchProgress < 100 && (
-              <div className="mb-6 space-y-3">
-                <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                  <div 
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300"
-                    style={{ width: `${batchProgress}%` }}
+            {/* Format Selection */}
+            <div className="space-y-6">
+              <div className="text-center">
+                <h3 className="text-xl font-bold font-outfit uppercase tracking-wide text-white mb-6">Choose Output Format</h3>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { format: 'JPG', category: 'Images' },
+                  { format: 'PNG', category: 'Images' },
+                  { format: 'PDF', category: 'Documents' },
+                  { format: 'MP3', category: 'Audio' },
+                  { format: 'MP4', category: 'Video' },
+                  { format: 'DOCX', category: 'Documents' },
+                  { format: 'WAV', category: 'Audio' },
+                  { format: 'WEBP', category: 'Images' },
+                ].map((item, index) => {
+                  const isSelected = targetFormat === item.format.toLowerCase();
+                  const accentClasses = getAccentClasses(index);
+
+                  return (
+                    <button
+                      key={item.format}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        handleFormatChange({ target: { value: item.format.toLowerCase() } });
+                      }}
+                      className={`p-4 rounded-2xl border-4 text-center transition-all duration-300 hover:scale-105 ${
+                        isSelected
+                          ? `${accentClasses.card} shadow-stacked scale-105`
+                          : 'muted-container border-accent-purple hover:border-accent-magenta'
+                      }`}
+                    >
+                      <div className={`text-2xl font-black font-outfit uppercase tracking-tight mb-1 ${
+                        isSelected ? accentClasses.text : 'text-white'
+                      }`}>
+                        {item.format}
+                      </div>
+                      <div className={`text-xs font-medium uppercase tracking-wide ${
+                        isSelected ? 'text-white' : 'text-muted'
+                      }`}>
+                        {item.category}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Convert Button */}
+              <div className="text-center pt-6">
+                <button
+                  type="submit"
+                  disabled={!selectedFile || !targetFormat || isConverting || isLoadingFFmpeg}
+                  onClick={() => triggerHaptic('heavy')}
+                  className="btn-primary px-12 py-6 text-2xl h-16 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {isLoadingFFmpeg ? 'Loading...' : isConverting ? 'Converting...' : (
+                    <>
+                      <svg className="w-8 h-8 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Convert File
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {conversionProgress > 0 && conversionProgress < 100 && (
+              <div className="space-y-3">
+                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-accent-magenta to-accent-cyan h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${conversionProgress}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    Processing... {batchProgress}%
+                  <span className="text-muted">
+                    Converting... {conversionProgress}%
                   </span>
-                  <span className="font-medium text-gray-800 dark:text-gray-200">
-                    {batchProgress}%
+                  <span className="font-medium text-white">
+                    {conversionProgress}%
                   </span>
                 </div>
               </div>
             )}
-            
-            <BatchConverter 
-              onConvert={handleBatchConvert} 
-              isConverting={isConverting}
-            />
-          </div>
-        )}
+          </form>
+        </div>
 
-        {activeTab === 'history' && (
-          <div className="glass-panel card-hover shadow-premium p-6 sm:p-8">
-            <HistoryPanel 
-              records={stats.recentConversions}
-              onDelete={deleteRecord}
-              onClear={clearHistory}
-            />
-          </div>
-        )}
+        {/* Success Screen */}
+        {convertedFile && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center cosmic-bg">
+            {/* Background Patterns */}
+            <div className="absolute inset-0 dot-grid" />
+            <div className="absolute inset-0 diagonal-stripes" />
+            <div className="absolute inset-0 gradient-mesh" />
 
-        {/* Success Message */}
-        {convertedFile && activeTab === 'convert' && (
-          <div className="mt-8 glass-panel card-hover shadow-premium p-6 sm:p-8">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-50 rounded-full mb-4 shadow-inner-md">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+            {/* Confetti Burst */}
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-3 h-3 rounded-full animate-confetti-burst"
+                style={{
+                  backgroundColor: ACCENT_COLORS[i % ACCENT_COLORS.length].value,
+                  left: `${20 + (i * 3)}%`,
+                  top: `${20 + (i * 2)}%`,
+                  animationDelay: `${i * 0.1}s`,
+                }}
+              />
+            ))}
+
+            <div className="relative z-10 text-center max-w-md mx-auto p-8">
+              <div className="mb-8">
+                <h1 className="text-9xl font-bangers text-shadow-triple gradient-text-animated mb-4">
+                  DONE!
+                </h1>
+                <p className="text-xl text-muted font-dm-sans">
+                  Your file has been converted successfully
+                </p>
               </div>
-              <h2 className="text-2xl font-bold text-premium-title mb-2">
-                Conversion Complete!
-              </h2>
-              <p className="text-lg text-premium-subtitle mb-6">
-                Your file has been successfully converted.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={() => {
-                    triggerHaptic('light');
-                    handleDownload();
-                  }}
-                  className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium rounded-xl shadow-lg shadow-inner-lg hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-300 hover-lift-lg press-effect haptic-touch"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+              <div className="muted-container rounded-3xl p-6 border-4 border-purple shadow-stacked mb-8">
+                <div className="flex items-center justify-center space-x-4">
+                  <div className="w-12 h-12 bg-accent-magenta rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 012-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-lg font-bold font-outfit text-white">
+                      {selectedFile?.name.replace(/\.[^/.]+$/, '')}.{targetFormat}
+                    </p>
+                    <p className="text-sm text-muted">
+                      Ready for download
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <button onClick={() => { triggerHaptic('heavy'); handleDownload(); }} className="btn-primary w-full py-4 text-xl h-14">
+                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Download Converted File
+                  Download File
                 </button>
-                <button
-                  onClick={() => {
-                    triggerHaptic('light');
-                    resetConverter();
-                  }}
-                  className="flex-1 sm:flex-none mt-4 sm:mt-0 px-6 py-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-gray-800 dark:text-gray-200 font-medium rounded-xl shadow-lg hover:bg-white/80 dark:hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-300 hover-lift press-effect haptic-touch"
-                >
-                  Convert Another File
+
+                <button onClick={() => { triggerHaptic('light'); resetConverter(); }} className="btn-secondary w-full py-4 text-xl h-14 border-accent-cyan">
+                  Convert Another
                 </button>
               </div>
             </div>
@@ -518,14 +440,14 @@ export default function Home() {
         )}
 
         {/* Footer */}
-        <div className="mt-12 text-center space-y-4">
-          <div className="inline-flex items-center space-x-2 text-sm text-gray-500">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mt-16 text-center space-y-4">
+          <div className="inline-flex items-center space-x-4 text-sm text-muted">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
-            <span>Your files are processed locally. No data is uploaded to any server.</span>
+            <span className="font-dm-sans">Your files are processed locally. No data is uploaded to any server.</span>
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-muted font-dm-sans">
             Install as an app for the best experience
           </p>
         </div>
